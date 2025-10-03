@@ -16,6 +16,7 @@ from transformers import (
     LlamaTokenizer,
 )
 
+# Import the torch_xla library for TPU support
 try:
     import torch_xla.core.xla_model as xm
     _TPU_AVAILABLE = True
@@ -41,6 +42,7 @@ def count_params(model):
 def set_model_device_evalmode(
     model, device, fix_decapoda_config=False, use_bfloat=False
 ):
+    # --- TPU/GPU/CPU device detection ---
     if device == 'auto':
         if _TPU_AVAILABLE:
             device = xm.xla_device()
@@ -49,8 +51,10 @@ def set_model_device_evalmode(
             device = 'cuda' if torch.cuda.is_available() else 'cpu'
             print(f"INFO: Auto-detected and using {device} device.")
 
+    # Move model to the selected device
     model = model.to(device)
 
+    # Apply half precision only if using a CUDA device
     if "cuda" in str(device):
         model.half()
 
@@ -65,10 +69,11 @@ def set_model_device_evalmode(
         model = model.bfloat16()
 
     gc.collect()
+    # Clear CUDA cache only if a CUDA device is used
     if "cuda" in str(device):
         torch.cuda.empty_cache()
 
-    return model, device
+    return model, device # Return the determined device as well
 
 
 def get_model(
@@ -77,10 +82,30 @@ def get_model(
     lora_ckpt=None,
     tokenizer=None,
     model_type="pretrain",
-    device="auto",
+    device="auto", # Changed default to 'auto' for flexibility
     fix_decapoda_config=False,
     use_bfloat=False,
 ):
     tokenizer = base_model if tokenizer is None else tokenizer
     if model_type == "pretrain":
         config = AutoConfig.from_pretrained(base_model)
+        if "gptq" in base_model.lower():
+            from auto_gptq import AutoGPTQForCausalLM
+
+            model = AutoGPTQForCausalLM.from_quantized(
+                base_model,
+                use_safetensors=True,
+                trust_remote_code=True,
+                use_triton=False,
+                quantize_config=None,
+            )
+            tokenizer = AutoTokenizer.from_pretrained(tokenizer)
+        elif (
+            "LlamaForCausalLM" in config.__getattribute__("architectures")
+            and "llama-3" not in base_model.lower()
+        ):
+            model = LlamaForCausalLM.from_pretrained(base_model, low_cpu_mem_usage=True)
+            tokenizer = LlamaTokenizer.from_pretrained(tokenizer)
+        else:
+            model = AutoModelForCausalLM.from_pretrained(
+                base_model, low_cpu

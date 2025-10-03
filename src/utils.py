@@ -188,11 +188,11 @@ def get_model(
             cfg_path = os.path.join(base_model, "config.json")
             if not os.path.exists(cfg_path):
                 raise FileNotFoundError(
-                    f"The directory '{base_model}' exists but does not contain a 'config.json'.
-"
-                    "If this is a HuggingFace repo ID, use 'namespace/repo_name'.
-"
-                    "If this is a local model folder, ensure it contains config.json (or pass the correct folder)."
+                    (
+                        f"The directory '{base_model}' exists but does not contain a 'config.json'.\n"
+                        "If this is a HuggingFace repo ID, use 'namespace/repo_name'.\n"
+                        "If this is a local model folder, ensure it contains config.json (or pass the correct folder)."
+                    )
                 )
 
     tokenizer = base_model if tokenizer is None else tokenizer
@@ -202,8 +202,7 @@ def get_model(
         except Exception as e:
             # Provide a more helpful error message
             raise RuntimeError(
-                f"Failed to load model config for '{base_model}': {e}
-"
+                f"Failed to load model config for '{base_model}': {e}"
                 "If 'base_model' points to a local directory, ensure it exists and contains 'config.json'."
             )
 
@@ -222,7 +221,8 @@ def get_model(
             "LlamaForCausalLM" in config.__getattribute__("architectures")
             and "llama-3" not in str(base_model).lower()
         ):
-            model = LlamaForCausalLM.from_pretrained(base_model, low_cpu_mem_usage=True)
+            model = LlamaForCausalLM.from_pretrained(
+                base_model, low_cpu_mem_usage=True)
             tokenizer = LlamaTokenizer.from_pretrained(tokenizer)
         else:
             model = AutoModelForCausalLM.from_pretrained(
@@ -241,10 +241,7 @@ def get_model(
     else:
         raise NotImplementedError
 
-    description = "Model Type: {}
- Base: {} 
- Pruned: {}
- LORA: {}".format(
+    description = "Model Type: {} Base: {}  Pruned: {} LORA: {}".format(
         model_type, base_model, ckpt, lora_ckpt
     )
 
